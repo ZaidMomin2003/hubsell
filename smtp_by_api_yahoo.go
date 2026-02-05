@@ -16,11 +16,7 @@ const (
 	signupPage     = "https://login.yahoo.com/account/create?specId=yidregsimplified&lang=en-US&src=&done=https%3A%2F%2Fwww.yahoo.com&display=login"
 	signupEndpoint = "https://login.yahoo.com/account/module/create?validateField=userId"
 	userAgent      = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
-)
-
-// Check yahoo email exists by their login & registration page.
-// See https://login.yahoo.com
-// See https://login.yahoo.com/account/create
+)
 func newYahooAPIVerifier(client *http.Client) smtpAPIVerifier {
 	if client == nil {
 		client = http.DefaultClient
@@ -48,8 +44,7 @@ type errItem struct {
 	Error string `json:"error"`
 }
 
-func (y yahoo) isSupported(host string) bool {
-	// FIXME Is this `contains` too lenient?
+func (y yahoo) isSupported(host string) bool {
 	return strings.Contains(host, "yahoo")
 }
 

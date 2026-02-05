@@ -9,9 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-)
-
-// writeFile writes content to a file
+)
 func writeFile(filePath string, data []byte) {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		log.Fatalf("no such file: %s make sure running from the root of the repo directory", filePath)

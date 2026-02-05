@@ -6,14 +6,11 @@ import (
 	"strings"
 )
 
-const (
-	// Standard Errors
+const (
 	ErrTimeout           = "The connection to the mail server has timed out"
 	ErrNoSuchHost        = "Mail server does not exist"
 	ErrServerUnavailable = "Mail server is unavailable"
-	ErrBlocked           = "Blocked by mail server"
-
-	// RCPT Errors
+	ErrBlocked           = "Blocked by mail server"
 	ErrTryAgainLater           = "Try again later"
 	ErrFullInbox               = "Recipient out of disk space"
 	ErrTooManyRCPT             = "Too many recipients"
@@ -23,43 +20,28 @@ const (
 	ErrNotAllowed              = "Not Allowed"
 	ErrNeedMAILBeforeRCPT      = "Need MAIL before RCPT"
 	ErrRCPTHasMoved            = "Recipient has moved"
-)
-
-// LookupError is an MX dns records lookup error
+)
 type LookupError struct {
 	Message string `json:"message" xml:"message"`
 	Details string `json:"details" xml:"details"`
-}
-
-// newLookupError creates a new LookupError reference and returns it
+}
 func newLookupError(message, details string) *LookupError {
 	return &LookupError{message, details}
 }
 
 func (e *LookupError) Error() string {
 	return fmt.Sprintf("%s : %s", e.Message, e.Details)
-}
-
-// ParseSMTPError receives an MX Servers response message
-// and generates the corresponding MX error
+}
 func ParseSMTPError(err error) *LookupError {
-	errStr := err.Error()
-
-	// Verify the length of the error before reading nil indexes
+	errStr := err.Error()
 	if len(errStr) < 3 {
 		return parseBasicErr(err)
-	}
-
-	// Strips out the status code string and converts to an integer for parsing
+	}
 	status, convErr := strconv.Atoi(string([]rune(errStr)[0:3]))
 	if convErr != nil {
 		return parseBasicErr(err)
-	}
-
-	// If the status code is above 400 there was an error and we should return it
-	if status > 400 {
-		// Don't return an error if the error contains anything about the address
-		// being undeliverable
+	}
+	if status > 400 {
 		if insContains(errStr,
 			"undeliverable",
 			"does not exist",
@@ -93,7 +75,7 @@ func ParseSMTPError(err error) *LookupError {
 			return newLookupError(ErrTooManyRCPT, errStr)
 		case 503:
 			return newLookupError(ErrNeedMAILBeforeRCPT, errStr)
-		case 550: // 550 is Mailbox Unavailable - usually undeliverable, ref: https://blog.mailtrap.io/550-5-1-1-rejected-fix/
+		case 550:
 			if insContains(errStr,
 				"spamhaus",
 				"proofpoint",
@@ -119,14 +101,9 @@ func ParseSMTPError(err error) *LookupError {
 		}
 	}
 	return nil
-}
-
-// parseBasicErr parses a basic MX record response and returns
-// a more understandable LookupError
+}
 func parseBasicErr(err error) *LookupError {
-	errStr := err.Error()
-
-	// Return a more understandable error
+	errStr := err.Error()
 	switch {
 	case insContains(errStr,
 		"spamhaus",
@@ -145,11 +122,7 @@ func parseBasicErr(err error) *LookupError {
 	default:
 		return newLookupError(errStr, errStr)
 	}
-}
-
-// insContains returns true if any of the substrings
-// are found in the passed string. This method of checking
-// contains is case insensitive
+}
 func insContains(str string, subStrs ...string) bool {
 	for _, subStr := range subStrs {
 		if strings.Contains(strings.ToLower(str),

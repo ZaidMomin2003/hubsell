@@ -6,15 +6,11 @@ import (
 	"net/http"
 	"strings"
 	"time"
-)
-
-// Gravatar is detail about the Gravatar
+)
 type Gravatar struct {
-	HasGravatar bool   `json:"has_gravatar"` // whether has gravatar
-	GravatarUrl string `json:"gravatar_url"` // gravatar url
-}
-
-// CheckGravatar will return the Gravatar records for the given email.
+	HasGravatar bool   `json:"has_gravatar"`
+	GravatarUrl string `json:"gravatar_url"`
+}
 func (v *Verifier) CheckGravatar(email string) (*Gravatar, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -39,8 +35,7 @@ func (v *Verifier) CheckGravatar(email string) (*Gravatar, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
-	}
-	// check body
+	}
 	err, md5Body := getMD5Hash(string(body))
 	if err != nil {
 		return nil, err

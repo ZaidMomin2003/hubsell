@@ -1,7 +1,7 @@
 package emailverifier
 
 import (
-	"crypto/md5" //nolint:gosec
+	"crypto/md5"
 	"encoding/hex"
 	"reflect"
 	"strings"
@@ -9,7 +9,6 @@ import (
 	"golang.org/x/net/idna"
 )
 
-// splitDomain splits domain and returns sld and tld
 func splitDomain(domain string) (string, string) {
 	parts := strings.Split(domain, ".")
 	n := len(parts)
@@ -19,8 +18,6 @@ func splitDomain(domain string) (string, string) {
 	return "", parts[0]
 }
 
-// domainToASCII converts any internationalized domain names to ASCII
-// reference: https://en.wikipedia.org/wiki/Punycode
 func domainToASCII(domain string) string {
 	asciiDomain, err := idna.ToASCII(domain)
 	if err != nil {
@@ -30,7 +27,6 @@ func domainToASCII(domain string) string {
 
 }
 
-// callJobFuncWithParams convert jobFunc and prams to a specific function and call it
 func callJobFuncWithParams(jobFunc interface{}, params []interface{}) []reflect.Value {
 	typ := reflect.TypeOf(jobFunc)
 	if typ.Kind() != reflect.Func {
@@ -47,8 +43,6 @@ func callJobFuncWithParams(jobFunc interface{}, params []interface{}) []reflect.
 	return f.Call(in)
 }
 
-// getMD5Hash use md5 to encode string
-// #nosec
 func getMD5Hash(str string) (error, string) {
 	h := md5.New()
 	_, err := h.Write([]byte(str))

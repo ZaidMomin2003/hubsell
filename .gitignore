@@ -1,4 +1,28 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bulkserver
+
+# Output of the go coverage tool, specifically when used with Litmus
+*.out
+
+# Node dependencies
+node_modules/
+web/dist/
+web/node_modules/
+
+# IDE files
 .idea/
 .vscode/
-vendor/
-covprofile
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+
+# Environment variables
+.env
+.env.local

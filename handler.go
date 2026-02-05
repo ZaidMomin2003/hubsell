@@ -7,9 +7,7 @@ import (
 	"io"
 	"net/http"
 	"time"
-)
-
-// updateDisposableDomains gets domains data from source's URL
+)
 func updateDisposableDomains(source string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -46,22 +44,16 @@ func updateDisposableDomains(source string) error {
 	newDomains := make(map[string]struct{})
 	for _, v := range domains {
 		newDomains[v] = struct{}{}
-	}
-
-	// clear up invalid disposable domains
+	}
 	disposableSyncDomains.Range(func(key, value interface{}) bool {
 		if _, exists := newDomains[key.(string)]; !exists {
 			disposableSyncDomains.Delete(key)
 		}
 		return true
-	})
-
-	// update new domain data
+	})
 	for _, d := range domains {
 		disposableSyncDomains.Store(d, struct{}{})
-	}
-
-	// add additionalDisposableDomains again
+	}
 	for d := range additionalDisposableDomains {
 		disposableSyncDomains.Store(d, struct{}{})
 	}

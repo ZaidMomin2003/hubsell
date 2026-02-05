@@ -1,6 +1,4 @@
-package emailverifier
-
-// suggestionSecondLevelDomains are second level domains to check misspelled domains
+package emailverifier
 var suggestionSecondLevelDomains = map[string]bool{
 	"yahoo":   true,
 	"hotmail": true,
@@ -8,9 +6,7 @@ var suggestionSecondLevelDomains = map[string]bool{
 	"live":    true,
 	"outlook": true,
 	"gmx":     true,
-}
-
-// suggestionTopLevelDomains are top level domains to check misspelled domains
+}
 var suggestionTopLevelDomains = map[string]bool{
 	"com":    true,
 	"com.au": true,

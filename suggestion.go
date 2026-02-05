@@ -4,18 +4,14 @@ import (
 	"strings"
 
 	"github.com/hbollon/go-edlib"
-)
-
-// SuggestDomain checks if domain has a typo and suggests a similar correct domain from metadata,
-// returns a suggestion
+)
 func (v *Verifier) SuggestDomain(domain string) string {
 	if domain == "" {
 		return ""
 	}
 
 	domain = strings.ToLower(domain)
-	sld, tld := splitDomain(domain)
-	// If the domain is a valid second level domain and top level domain, do not suggest anything
+	sld, tld := splitDomain(domain)
 	if sld != "" && tld != "" {
 		if suggestionSecondLevelDomains[sld] && suggestionTopLevelDomains[tld] {
 			return ""
@@ -25,11 +21,9 @@ func (v *Verifier) SuggestDomain(domain string) string {
 
 	closestDomain := findClosestDomain(domain, freeDomains, domainThreshold)
 	if closestDomain != "" {
-		if closestDomain == domain {
-			// The domain exactly matches one of the suggestion domains, no suggestion provided.
+		if closestDomain == domain {
 			return ""
-		}
-		// The domain closely matches one of the suggestion domains
+		}
 		return closestDomain
 	}
 
@@ -54,9 +48,7 @@ func (v *Verifier) SuggestDomain(domain string) string {
 	}
 
 	return ""
-}
-
-// findClosestDomain finds the string most similar to the domain via Levenshtein algorithms.
+}
 func findClosestDomain(domain string, domains map[string]bool, threshold float32) string {
 	var maxDist = float32(-1)
 	var closestDomain string

@@ -203,6 +203,50 @@ The `email` parameter would be the target email you want to verify.
 
 `https://{your_host}/v1/{email}/verification`
 
+## Bulk API (Async)
+
+This repo also includes a lightweight async bulk API server:
+
+```
+cmd/bulkserver
+```
+
+Run it:
+
+```shell
+go run ./cmd/bulkserver
+```
+
+### Endpoints
+
+- `POST /v1/verify` body: `{"email":"a@b.com","level":1}`
+- `POST /v1/bulk` body: `{"emails":["a@b.com","c@d.com"],"level":1,"concurrency":200}`
+- Optional callback: `{"callback_url":"https://your-ingest","callback_batch":200}`
+- `GET /v1/bulk/{id}` job status
+- `GET /v1/bulk/{id}/results?offset=0&limit=1000` results (JSON)
+- `GET /v1/bulk/{id}/download` results (CSV)
+- `GET /health`
+
+### Levels
+
+- Level 1: syntax, free/role/disposable, MX checks (no SMTP)
+- Level 2: Level 1 + SMTP verification
+
+### Config (env)
+
+- `ADDR` (default `:8080`)
+- `LEVEL1_CONCURRENCY` (default `200`)
+- `LEVEL2_CONCURRENCY` (default `50`)
+- `JOB_CONCURRENCY` (default `200`)
+- `MAX_EMAILS` (default `100000`)
+- `RESULT_TTL` (default `15m`)
+- `STORE_RESULTS` (default `true`)
+- `SMTP_CONNECT_TIMEOUT` (default `10s`)
+- `SMTP_OPERATION_TIMEOUT` (default `10s`)
+- `SMTP_FROM_EMAIL` (default `user@example.org`)
+- `SMTP_HELO_NAME` (default `localhost`)
+- `SMTP_CATCH_ALL` (default `true`)
+
 ## Similar Libraries Comparison
 
 |                                     | [email-verifier](https://github.com/AfterShip/email-verifier) | [trumail](https://github.com/trumail/trumail) | [check-if-email-exists](https://reacher.email/) | [freemail](https://github.com/willwhite/freemail) |

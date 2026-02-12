@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Upload, CheckCircle2, AlertCircle, Trash2,
-    Server, User, Zap, Download, Loader2, Search, Filter, List
+    Server, User, Zap, Download, Loader2, Search, Filter, List, XCircle, ArrowRight
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -10,11 +10,13 @@ const Dashboard = () => {
     const [jobId, setJobId] = useState(null);
     const [jobStatus, setJobStatus] = useState(null);
     const [results, setResults] = useState([]);
+    const [originalRows, setOriginalRows] = useState([]);
     const [stats, setStats] = useState({ good: 0, risky: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 });
     const [level, setLevel] = useState(1);
     const [filter, setFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedPhase2Lists, setSelectedPhase2Lists] = useState({ good: true, risky: false, bad: false });
+    const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
     const resultsPerPage = 50;
     const fileInputRef = useRef(null);
@@ -62,8 +64,19 @@ const Dashboard = () => {
     const fetchResults = async () => {
         try {
             const { data } = await axios.get(`/v1/bulk/${jobId}/results?limit=100000`);
-            setResults(data.results || []);
-            calculateStats(data.results || []);
+            const resultMap = {};
+            (data.results || []).forEach(r => {
+                resultMap[r.email] = r.result;
+            });
+
+            // Merge results back to original rows, keeping original data
+            const merged = originalRows.map(row => ({
+                ...row,
+                result: resultMap[row.email]
+            }));
+
+            setResults(merged);
+            calculateStats(merged);
             setStep('results');
         } catch (err) {
             console.error('Fetch results error', err);
@@ -95,8 +108,24 @@ const Dashboard = () => {
         const file = e.target.files[0];
         if (!file) return;
         const text = await file.text();
-        const emails = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-        if (emails.length === 0) return alert('No emails found');
+
+        // Split by lines and preserve original content
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+        if (lines.length === 0) return alert('No data found');
+
+        const rows = lines.map(line => {
+            // Match first email in line to use as verification target
+            const match = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            return {
+                original: line,
+                email: match ? match[0] : null
+            };
+        }).filter(row => row.email !== null);
+
+        if (rows.length === 0) return alert('No emails found in the file');
+
+        setOriginalRows(rows);
+        const emails = rows.map(r => r.email);
         startVerification(emails, 1);
     };
 
@@ -117,10 +146,47 @@ const Dashboard = () => {
         setJobId(null);
         setJobStatus(null);
         setResults([]);
+        setOriginalRows([]);
         setStats({ good: 0, risky: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 });
         setFilter('all');
         setCurrentPage(1);
         setSelectedPhase2Lists({ good: true, risky: false, bad: false });
+    };
+
+    const downloadResults = (type) => {
+        const toDownload = results.filter(row => {
+            if (type === 'all') return true;
+            const status = row.result?.reachable || 'unknown';
+            const isGood = status === 'yes';
+            const isBad = status === 'no' || row.result?.disposable === true || row.result?.has_mx_records === false;
+            const isRisky = !isGood && !isBad;
+
+            if (type === 'good') return isGood;
+            if (type === 'risky') return isRisky;
+            if (type === 'bad') return isBad;
+            return false;
+        });
+
+        if (toDownload.length === 0) return alert('No results found for this filter');
+
+        // Reconstruct CSV/Txt by appending result columns
+        const csvContent = toDownload.map(row => {
+            const status = row.result?.reachable || 'unknown';
+            let label = "Unknown";
+            if (status === 'yes') label = "Good";
+            else if (status === 'no' || row.result?.disposable || !row.result?.has_mx_records) label = "Bad";
+            else label = "Risky";
+
+            return `${row.original},${label},${row.result?.disposable ? 'Disposable' : 'Corporate'},${row.result?.smtp?.catch_all ? 'Catch-all' : 'Direct'}`;
+        }).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cleanmails_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        setShowDownloadMenu(false);
     };
 
     const proceedToLevel2 = async () => {
@@ -234,17 +300,47 @@ const Dashboard = () => {
 
                     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
                         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                            <div className="flex gap-2">
-                                {['all', 'good', 'risky', 'bad'].map(f => (
+                            <div className="flex gap-4 items-center">
+                                <div className="flex gap-2">
+                                    {['all', 'good', 'risky', 'bad'].map(f => (
+                                        <button
+                                            key={f}
+                                            onClick={() => setFilter(f)}
+                                            className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-all ${filter === f ? 'bg-slate-900 text-white' : 'hover:bg-slate-200 text-slate-600'}`}
+                                        >
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="relative">
                                     <button
-                                        key={f}
-                                        onClick={() => setFilter(f)}
-                                        className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-all ${filter === f ? 'bg-slate-900 text-white' : 'hover:bg-slate-200 text-slate-600'}`}
+                                        onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold uppercase transition-all shadow-sm"
                                     >
-                                        {f}
+                                        <Download className="w-3.5 h-3.5" />
+                                        Download Results
                                     </button>
-                                ))}
+
+                                    {showDownloadMenu && (
+                                        <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden py-1">
+                                            <button onClick={() => downloadResults('all')} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                                <List className="w-3 h-3" /> All Results
+                                            </button>
+                                            <button onClick={() => downloadResults('good')} className="w-full text-left px-4 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
+                                                <CheckCircle2 className="w-3 h-3" /> Good Mails Only
+                                            </button>
+                                            <button onClick={() => downloadResults('risky')} className="w-full text-left px-4 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2">
+                                                <AlertCircle className="w-3 h-3" /> Risky Mails Only
+                                            </button>
+                                            <button onClick={() => downloadResults('bad')} className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                                                <XCircle className="w-3 h-3" /> Bad Mails Only
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+
                             <button onClick={resetSession} className="text-slate-500 hover:text-indigo-600 flex items-center gap-1 text-xs font-bold uppercase transition-colors">
                                 <Trash2 className="w-3 h-3" />
                                 New Verification
@@ -340,12 +436,5 @@ const SMTPBadge = ({ reachable, smtp }) => {
     return <span className="text-slate-400 bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight">UNTESTED</span>;
 };
 
-const XCircle = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></svg>
-);
-
-const ArrowRight = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-);
 
 export default Dashboard;

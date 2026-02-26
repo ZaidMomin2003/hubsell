@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Upload, CheckCircle2, AlertCircle, Trash2,
-    Server, User, Zap, Download, Loader2, Search, Filter, List, XCircle, ArrowRight
+    Zap, Download, Loader2, Search, Filter, List, XCircle, ArrowRight, Mail, Globe, Shield, RefreshCw
 } from 'lucide-react';
 import axios from 'axios';
 
-const Dashboard = () => {
+const Dashboard = ({ initialEmails = null, onResetState }) => {
     const [step, setStep] = useState('upload');
     const [jobId, setJobId] = useState(null);
     const [jobStatus, setJobStatus] = useState(null);
@@ -28,6 +28,18 @@ const Dashboard = () => {
         }
         return () => clearInterval(interval);
     }, [jobId, step]);
+
+    useEffect(() => {
+        if (initialEmails && initialEmails.length > 0) {
+            const rows = initialEmails.map(email => ({
+                original: email,
+                email: email.toLowerCase()
+            }));
+            setOriginalRows(rows);
+            startVerification(initialEmails, 1);
+            if (onResetState) onResetState();
+        }
+    }, [initialEmails, onResetState]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -69,7 +81,6 @@ const Dashboard = () => {
                 resultMap[r.email] = r.result;
             });
 
-            // Merge results back to original rows, keeping original data
             const merged = originalRows.map(row => ({
                 ...row,
                 result: resultMap[row.email]
@@ -109,12 +120,10 @@ const Dashboard = () => {
         if (!file) return;
         const text = await file.text();
 
-        // Split by lines and preserve original content
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
-        if (lines.length === 0) return alert('No data found');
+        if (lines.length === 0) return;
 
         const rows = lines.map(line => {
-            // Match first email in line to use as verification target
             const match = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
             return {
                 original: line,
@@ -122,7 +131,7 @@ const Dashboard = () => {
             };
         }).filter(row => row.email !== null);
 
-        if (rows.length === 0) return alert('No emails found in the file');
+        if (rows.length === 0) return;
 
         setOriginalRows(rows);
         const emails = rows.map(r => r.email);
@@ -136,7 +145,6 @@ const Dashboard = () => {
             const { data } = await axios.post('/v1/bulk', { emails, level: l });
             setJobId(data.id);
         } catch (err) {
-            alert('Backend error');
             setStep('upload');
         }
     };
@@ -150,7 +158,6 @@ const Dashboard = () => {
         setStats({ good: 0, risky: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 });
         setFilter('all');
         setCurrentPage(1);
-        setSelectedPhase2Lists({ good: true, risky: false, bad: false });
     };
 
     const downloadResults = (type) => {
@@ -167,9 +174,8 @@ const Dashboard = () => {
             return false;
         });
 
-        if (toDownload.length === 0) return alert('No results found for this filter');
+        if (toDownload.length === 0) return;
 
-        // Reconstruct CSV/Txt by appending result columns
         const csvContent = toDownload.map(row => {
             const status = row.result?.reachable || 'unknown';
             let label = "Unknown";
@@ -193,12 +199,9 @@ const Dashboard = () => {
         try {
             const { data } = await axios.get('/v1/network-check');
             if (!data.port25) {
-                alert("⚠️ Port 25 Blocked: Your server/ISP is blocking outgoing SMTP connections. Level 2 (Handshake) will likely fail or return inaccurate results. Please open port 25 or use a different VPS (like Contabo) that allows SMTP traffic.");
-                return;
+                alert("Port 25 is blocked. Results may be inaccurate.");
             }
-        } catch (e) {
-            console.error("Network check failed", e);
-        }
+        } catch (e) { }
 
         const emailsToVerify = results.filter(item => {
             const status = item.result?.reachable || 'unknown';
@@ -212,38 +215,65 @@ const Dashboard = () => {
             return false;
         }).map(item => item.email);
 
-        if (emailsToVerify.length === 0) return alert('No emails selected for Phase 2');
+        if (emailsToVerify.length === 0) return;
         startVerification(emailsToVerify, 2);
     };
 
-    const togglePhase2List = (list) => {
-        setSelectedPhase2Lists(prev => ({ ...prev, [list]: !prev[list] }));
-    };
-
     return (
-        <div className="space-y-6">
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {step === 'upload' && (
-                <div
-                    className="bg-white border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-slate-400 cursor-pointer"
-                    onClick={() => fileInputRef.current.click()}
-                >
-                    <input type="file" ref={fileInputRef} hidden onChange={handleFileUpload} accept=".csv,.txt" />
-                    <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                    <h1 className="text-xl font-bold mb-2">Upload Email List</h1>
-                    <p className="text-slate-500 text-sm">Select a .txt or .csv file to start Phase 1. Limit: 100k</p>
+                <div className="flex flex-col items-center">
+                    <div className="text-center mb-10">
+                        <h1 className="text-4xl font-black tracking-tight mb-3 italic">Bulk Email Hygiene</h1>
+                        <p className="text-muted-foreground font-medium uppercase text-xs tracking-[0.3em]">Phase 1: Basic Analysis & Filtering</p>
+                    </div>
+
+                    <div
+                        className="group relative w-full max-w-4xl bg-card border-4 border-dashed border-muted rounded-[2rem] p-20 text-center hover:border-primary/50 cursor-pointer transition-all duration-500 overflow-hidden"
+                        onClick={() => fileInputRef.current.click()}
+                    >
+                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <input type="file" ref={fileInputRef} hidden onChange={handleFileUpload} accept=".csv,.txt" />
+
+                        <div className="relative z-10">
+                            <div className="w-24 h-24 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-500">
+                                <Upload className="w-10 h-10 text-primary" />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3">Drop your list here</h3>
+                            <p className="text-muted-foreground text-sm max-w-xs mx-auto mb-10 font-medium">Supporting .txt and .csv formats. Optimized for high-volume batches up to 100k.</p>
+
+                            <div className="flex items-center justify-center gap-6">
+                                <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                                    <Zap className="w-3 h-3 text-amber-500" /> Fast Scan
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                                    <Shield className="w-3 h-3 text-emerald-500" /> Secure
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                                    <Globe className="w-3 h-3 text-blue-500" /> MX Records
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {step === 'processing' && (
-                <div className="card text-center py-12">
-                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
-                    <h2 className="text-lg font-bold">
-                        {level === 1 ? 'Phase 1: Basic Analysis' : 'Phase 2: SMTP Checks'}
+                <div className="flex flex-col items-center py-20">
+                    <div className="relative mb-12">
+                        <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+                        <Loader2 className="w-20 h-20 text-primary animate-spin relative z-10" />
+                    </div>
+                    <h2 className="text-3xl font-black mb-2 italic">
+                        {level === 1 ? 'Phase 1: Analyzing Infrastructure' : 'Phase 2: SMTP Deep-Handshake'}
                     </h2>
-                    <p className="text-slate-500 text-sm mb-6">Processing {jobStatus?.done || 0} / {jobStatus?.total || 0}</p>
-                    <div className="max-w-xs mx-auto bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest mb-10">
+                        Synchronizing node {jobStatus?.done || 0} of {jobStatus?.total || 0}
+                    </p>
+
+                    <div className="w-full max-w-md bg-muted h-4 rounded-full overflow-hidden shadow-inner border border-white/5">
                         <div
-                            className="bg-indigo-600 h-full transition-all duration-300"
+                            className="bg-gradient-to-r from-primary to-indigo-600 h-full transition-all duration-700 ease-out"
                             style={{ width: `${((jobStatus?.done || 0) / (jobStatus?.total || 1)) * 100}%` }}
                         />
                     </div>
@@ -251,148 +281,148 @@ const Dashboard = () => {
             )}
 
             {step === 'results' && (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <StatCard label="Good Mails" value={stats.good} color="text-emerald-600" />
-                        <StatCard label="Risky Mails" value={stats.risky} color="text-amber-600" />
-                        <StatCard label="Bad Mails" value={stats.bad} color="text-rose-600" />
+                <div className="space-y-10">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <ResultStat label="Deliverable" value={stats.good} color="text-emerald-500" icon={<CheckCircle2 className="w-5 h-5" />} />
+                        <ResultStat label="Risky / Unknown" value={stats.risky} color="text-amber-500" icon={<AlertCircle className="w-5 h-5" />} />
+                        <ResultStat label="Bad / Invalid" value={stats.bad} color="text-rose-500" icon={<XCircle className="w-5 h-5" />} />
                     </div>
 
                     {level === 1 && (
-                        <div className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="glass p-10 rounded-[2rem] flex flex-col md:flex-row justify-between items-center gap-10 border-primary/20">
                             <div className="flex-1">
-                                <h3 className="text-lg font-bold flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500" /> Phase 1 Complete</h3>
-                                <p className="text-sm text-slate-500 mt-1">Select which lists you'd like to proceed with for deep SMTP validation:</p>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="p-2 bg-amber-500/10 rounded-lg">
+                                        <Zap className="w-5 h-5 text-amber-500" />
+                                    </div>
+                                    <h3 className="text-xl font-bold italic underline decoration-amber-500/30 underline-offset-4">Phase 1 Complete</h3>
+                                </div>
+                                <p className="text-sm text-muted-foreground font-medium mb-8 max-w-lg leading-relaxed">Infrastructure check finished. Would you like to proceed with real-time mailbox verification for selected segments?</p>
 
-                                <div className="flex flex-wrap gap-3 mt-4">
-                                    <ListToggle
-                                        label="Good"
-                                        count={stats.good}
-                                        active={selectedPhase2Lists.good}
-                                        onClick={() => togglePhase2List('good')}
-                                        color="emerald"
-                                    />
-                                    <ListToggle
-                                        label="Risky"
-                                        count={stats.risky}
-                                        active={selectedPhase2Lists.risky}
-                                        onClick={() => togglePhase2List('risky')}
-                                        color="amber"
-                                    />
-                                    <ListToggle
-                                        label="Bad"
-                                        count={stats.bad}
-                                        active={selectedPhase2Lists.bad}
-                                        onClick={() => togglePhase2List('bad')}
-                                        color="rose"
-                                    />
+                                <div className="flex flex-wrap gap-4">
+                                    <SegmentToggle label="Good" count={stats.good} active={selectedPhase2Lists.good} onClick={() => setSelectedPhase2Lists(p => ({ ...p, good: !p.good }))} color="bg-emerald-500" />
+                                    <SegmentToggle label="Risky" count={stats.risky} active={selectedPhase2Lists.risky} onClick={() => setSelectedPhase2Lists(p => ({ ...p, risky: !p.risky }))} color="bg-amber-500" />
+                                    <SegmentToggle label="Bad" count={stats.bad} active={selectedPhase2Lists.bad} onClick={() => setSelectedPhase2Lists(p => ({ ...p, bad: !p.bad }))} color="bg-rose-500" />
                                 </div>
                             </div>
                             <button
                                 onClick={proceedToLevel2}
-                                className="bg-slate-900 hover:bg-black text-white px-8 py-3 rounded-lg font-bold flex items-center gap-2 transition-all w-full md:w-auto justify-center"
+                                className="group bg-primary hover:bg-primary/90 text-primary-foreground px-10 py-5 rounded-2xl font-black italic tracking-tight flex items-center gap-3 transition-all shadow-xl shadow-primary/20"
                             >
-                                Start Phase 2 Check
-                                <ArrowRight className="w-4 h-4" />
+                                Start Handshake
+                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                             </button>
                         </div>
                     )}
 
-                    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-                        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                            <div className="flex gap-4 items-center">
-                                <div className="flex gap-2">
-                                    {['all', 'good', 'risky', 'bad'].map(f => (
-                                        <button
-                                            key={f}
-                                            onClick={() => setFilter(f)}
-                                            className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-all ${filter === f ? 'bg-slate-900 text-white' : 'hover:bg-slate-200 text-slate-600'}`}
-                                        >
-                                            {f}
-                                        </button>
-                                    ))}
-                                </div>
+                    <div className="bg-card glass border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl">
+                        <div className="p-8 border-b border-white/5 flex flex-wrap justify-between items-center gap-6">
+                            <div className="flex flex-wrap gap-3 items-center">
+                                {['all', 'good', 'risky', 'bad'].map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setFilter(f)}
+                                        className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'hover:bg-muted text-muted-foreground'}`}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+
+                                <div className="h-6 w-[1px] bg-muted mx-2" />
 
                                 <div className="relative">
                                     <button
                                         onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold uppercase transition-all shadow-sm"
+                                        className="flex items-center gap-2 px-5 py-2 bg-foreground text-background dark:bg-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:opacity-90"
                                     >
-                                        <Download className="w-3.5 h-3.5" />
-                                        Download Results
+                                        <Download className="w-3 h-3" />
+                                        Export List
                                     </button>
 
                                     {showDownloadMenu && (
-                                        <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden py-1">
-                                            <button onClick={() => downloadResults('all')} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                                <List className="w-3 h-3" /> All Results
-                                            </button>
-                                            <button onClick={() => downloadResults('good')} className="w-full text-left px-4 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
-                                                <CheckCircle2 className="w-3 h-3" /> Good Mails Only
-                                            </button>
-                                            <button onClick={() => downloadResults('risky')} className="w-full text-left px-4 py-2 text-xs font-bold text-amber-600 hover:bg-amber-50 flex items-center gap-2">
-                                                <AlertCircle className="w-3 h-3" /> Risky Mails Only
-                                            </button>
-                                            <button onClick={() => downloadResults('bad')} className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2">
-                                                <XCircle className="w-3 h-3" /> Bad Mails Only
-                                            </button>
+                                        <div className="absolute left-0 mt-3 w-56 bg-card border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden py-2 animate-in fade-in zoom-in-95 duration-200">
+                                            <DownloadOption onClick={() => downloadResults('all')} label="All Results" icon={<List className="w-4 h-4" />} />
+                                            <DownloadOption onClick={() => downloadResults('good')} label="Deliverable Only" icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} />
+                                            <DownloadOption onClick={() => downloadResults('risky')} label="Risky Only" icon={<AlertCircle className="w-4 h-4 text-amber-500" />} />
+                                            <DownloadOption onClick={() => downloadResults('bad')} label="Bad Only" icon={<XCircle className="w-4 h-4 text-rose-500" />} />
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <button onClick={resetSession} className="text-slate-500 hover:text-indigo-600 flex items-center gap-1 text-xs font-bold uppercase transition-colors">
-                                <Trash2 className="w-3 h-3" />
-                                New Verification
+                            <button onClick={resetSession} className="text-muted-foreground hover:text-destructive flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors">
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                Start Fresh
                             </button>
                         </div>
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-                                <tr>
-                                    <th className="px-4 py-3">Email Address</th>
-                                    <th className="px-4 py-3">Type</th>
-                                    <th className="px-4 py-3">Infrastructure</th>
-                                    <th className="px-4 py-3">SMTP Result</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {paginatedResults.map((item, idx) => {
-                                    const result = item.result;
-                                    const isDisposable = result?.disposable;
-                                    const hasMX = result?.has_mx_records;
-                                    const reachable = result?.reachable || 'unknown';
-                                    const smtp = result?.smtp;
 
-                                    return (
-                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-slate-700">{item.email}</td>
-                                            <td className="px-4 py-3">
-                                                {isDisposable ?
-                                                    <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-[10px] font-bold">DISPOSABLE</span> :
-                                                    <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[10px] font-bold">CORPORATE</span>
-                                                }
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {hasMX ?
-                                                    <span className="text-emerald-600 flex items-center gap-1 font-bold text-[10px]"><CheckCircle2 className="w-3 h-3" /> MX ACTIVE</span> :
-                                                    <span className="text-rose-600 flex items-center gap-1 font-bold text-[10px]"><XCircle className="w-3 h-3" /> NO MX</span>
-                                                }
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <SMTPBadge reachable={reachable} smtp={smtp} />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm border-collapse">
+                                <thead>
+                                    <tr className="bg-muted/30 text-muted-foreground">
+                                        <th className="px-8 py-5 font-black uppercase tracking-widest text-[10px]">Recipient Email</th>
+                                        <th className="px-8 py-5 font-black uppercase tracking-widest text-[10px]">Segment</th>
+                                        <th className="px-8 py-4 font-black uppercase tracking-widest text-[10px]">MX Status</th>
+                                        <th className="px-8 py-5 font-black uppercase tracking-widest text-[10px]">Verification Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {paginatedResults.map((item, idx) => {
+                                        const result = item.result;
+                                        const isDisposable = result?.disposable;
+                                        const hasMX = result?.has_mx_records;
+                                        const reachable = result?.reachable || 'unknown';
+                                        const smtp = result?.smtp;
+
+                                        return (
+                                            <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                                                <td className="px-8 py-5 font-bold">
+                                                    <div className="flex items-center gap-3">
+                                                        <Mail className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                        {item.email}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-5">
+                                                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black border ${isDisposable ? 'border-rose-500/20 text-rose-500 bg-rose-500/5' : 'border-emerald-500/20 text-emerald-500 bg-emerald-500/5'}`}>
+                                                        {isDisposable ? 'DISPOSABLE' : 'CORPORATE'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-5">
+                                                    <div className={`flex items-center gap-2 text-[10px] font-bold ${hasMX ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                        {hasMX ? <Globe className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                                        {hasMX ? 'ACTIVE' : 'INACTIVE'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-5">
+                                                    <ResultBadge reachable={reachable} smtp={smtp} />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
 
                         {totalPages > 1 && (
-                            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
-                                <span>Page {currentPage} of {totalPages}</span>
-                                <div className="flex gap-1">
-                                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="px-4 py-2 border border-slate-200 rounded-lg bg-white font-bold hover:bg-slate-50 disabled:opacity-50">PREV</button>
-                                    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="px-4 py-2 border border-slate-200 rounded-lg bg-white font-bold hover:bg-slate-50 disabled:opacity-50">NEXT</button>
+                            <div className="p-8 border-t border-white/5 flex justify-between items-center">
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <div className="flex gap-4">
+                                    <button
+                                        disabled={currentPage === 1}
+                                        onClick={() => setCurrentPage(p => p - 1)}
+                                        className="px-6 py-3 bg-muted rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-accent disabled:opacity-20 transition-all font-mono"
+                                    >
+                                        [PREV]
+                                    </button>
+                                    <button
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setCurrentPage(p => p + 1)}
+                                        className="px-6 py-3 bg-muted rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-accent disabled:opacity-20 transition-all font-mono"
+                                    >
+                                        [NEXT]
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -403,38 +433,61 @@ const Dashboard = () => {
     );
 };
 
-const StatCard = ({ label, value, color }) => (
-    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-        <div className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">{label}</div>
-        <div className={`text-3xl font-black ${color}`}>{value.toLocaleString()}</div>
+const ResultStat = ({ label, value, color, icon }) => (
+    <div className="bg-card glass border border-white/10 rounded-[2rem] p-8 shadow-2xl relative overflow-hidden group">
+        <div className={`absolute -right-4 -top-4 w-24 h-24 ${color} opacity-5 blur-2xl group-hover:opacity-10 transition-opacity`} />
+        <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">{label}</span>
+            <div className={`p-2 rounded-lg bg-card border border-white/10 ${color}`}>{icon}</div>
+        </div>
+        <div className={`text-4xl font-black italic ${color}`}>{value.toLocaleString()}</div>
     </div>
 );
 
-const ListToggle = ({ label, count, active, onClick, color }) => {
-    const colors = {
-        emerald: active ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-        amber: active ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100',
-        rose: active ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-700 hover:bg-rose-100',
-    };
+const SegmentToggle = ({ label, count, active, onClick, color }) => (
+    <button
+        onClick={onClick}
+        className={`px-6 py-3 rounded-2xl flex items-center gap-3 border transition-all duration-300 ${active
+            ? `${color} text-white shadow-lg border-transparent`
+            : 'bg-card border-white/10 text-muted-foreground hover:border-primary/30'
+            }`}
+    >
+        <div className={`w-2 h-2 rounded-full ${active ? 'bg-white' : color} animate-pulse`} />
+        <span className="text-[11px] font-black uppercase tracking-widest">{label} ({count})</span>
+    </button>
+);
 
+const DownloadOption = ({ onClick, label, icon }) => (
+    <button
+        onClick={onClick}
+        className="w-full text-left px-5 py-3 text-[10px] font-black text-muted-foreground hover:bg-primary/10 hover:text-primary flex items-center gap-3 transition-colors uppercase tracking-widest"
+    >
+        {icon} {label}
+    </button>
+);
+
+const ResultBadge = ({ reachable, smtp }) => {
+    if (reachable === 'yes') return (
+        <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
+            DELIVERABLE
+        </span>
+    );
+    if (smtp?.catch_all) return (
+        <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
+            CATCH-ALL
+        </span>
+    );
+    if (reachable === 'no') return (
+        <span className="bg-rose-500/10 text-rose-500 border border-rose-500/20 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
+            INVALID
+        </span>
+    );
     return (
-        <button
-            onClick={onClick}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 border border-transparent ${colors[color]}`}
-        >
-            <div className={`w-2 h-2 rounded-full ${active ? 'bg-white' : `bg-${color}-500`}`} />
-            {label} ({count})
-            {active && <CheckCircle2 className="w-3 h-3" />}
-        </button>
+        <span className="bg-muted/50 text-muted-foreground border border-white/5 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
+            PENDING
+        </span>
     );
 };
 
-const SMTPBadge = ({ reachable, smtp }) => {
-    if (reachable === 'yes') return <span className="text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight">DELIVERABLE / GOOD</span>;
-    if (smtp?.catch_all) return <span className="text-amber-700 bg-amber-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight">CATCH ALL / RISKY</span>;
-    if (reachable === 'no') return <span className="text-rose-700 bg-rose-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight">NON-EXISTENT / BAD</span>;
-    return <span className="text-slate-400 bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight">UNTESTED</span>;
-};
-
-
 export default Dashboard;
+

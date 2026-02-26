@@ -2,19 +2,71 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import Docs from './components/Docs';
 import SingleVerifier from './components/SingleVerifier';
+import EmailExtractor from './components/EmailExtractor';
+import SpamAnalysis from './components/SpamAnalysis';
+import ListCleaner from './components/ListCleaner';
 import Login from './components/Login';
-import { ShieldCheck, BookOpen, LayoutDashboard, User, LogOut } from 'lucide-react';
+import {
+  ShieldCheck,
+  BookOpen,
+  LayoutDashboard,
+  User,
+  LogOut,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  ChevronRight,
+  Settings,
+  Mail,
+  Search,
+  CheckCircle2,
+  AlertTriangle,
+  Zap,
+  Filter
+} from 'lucide-react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [darkMode, setDarkMode] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [sharedEmails, setSharedEmails] = useState(null);
+
+  const startValidation = (emails) => {
+    setSharedEmails(emails);
+    setActiveTab('dashboard');
+  };
 
   useEffect(() => {
     const authStatus = localStorage.getItem('cleanmails_auth');
     if (authStatus === 'true') {
       setIsAuthenticated(true);
     }
+
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    if (savedTheme === 'light') {
+      setDarkMode(false);
+      document.documentElement.classList.remove('dark');
+    } else {
+      setDarkMode(true);
+      document.documentElement.classList.add('dark');
+    }
   }, []);
+
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   const handleLogin = () => {
     setIsAuthenticated(true);
@@ -26,11 +78,24 @@ function App() {
     localStorage.removeItem('cleanmails_auth');
   };
 
+  const menuItems = [
+    { id: 'dashboard', label: 'Email Validation', icon: LayoutDashboard, category: 'PRIMARY TOOLS' },
+    { id: 'extractor', label: 'Email Extractor', icon: Mail, category: 'PRIMARY TOOLS' },
+    { id: 'cleaner', label: 'List Cleaner', icon: Filter, category: 'PRIMARY TOOLS' },
+    { id: 'spam', label: 'Spam Analysis', icon: Search, category: 'PRIMARY TOOLS' },
+    { id: 'single', label: 'Single Verifier', icon: User, category: 'SUPPORT TOOLS' },
+    { id: 'docs', label: 'Documentation', icon: BookOpen, category: 'SUPPORT TOOLS' },
+  ];
+
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard initialEmails={sharedEmails} onResetState={() => setSharedEmails(null)} />;
+      case 'extractor': return <EmailExtractor onValidate={startValidation} />;
+      case 'cleaner': return <ListCleaner onValidate={startValidation} />;
+      case 'spam': return <SpamAnalysis />;
       case 'single': return <SingleVerifier />;
       case 'docs': return <Docs />;
+      case 'settings': return <div className="flex items-center justify-center min-h-[400px] text-muted-foreground">Settings configuration coming soon...</div>;
       default: return <Dashboard />;
     }
   };
@@ -39,56 +104,134 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
+  const primaryTools = menuItems.filter(item => item.category === 'PRIMARY TOOLS');
+  const supportTools = menuItems.filter(item => item.category === 'SUPPORT TOOLS');
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-6 h-6 text-indigo-600" />
-          <span className="text-xl font-bold tracking-tight">Cleanmails</span>
+    <div className={`min-h-screen flex bg-background text-foreground transition-all duration-300 font-sans ${darkMode ? 'dark' : ''}`}>
+      {/* Sidebar Overlay for Mobile */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-50 p-4 bg-primary text-primary-foreground rounded-full shadow-2xl animate-bounce"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-72 glass border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        <div className="h-full flex flex-col p-8">
+          <div className="flex items-center justify-between mb-12">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-primary/20 rounded-2xl shadow-lg shadow-primary/10">
+                <ShieldCheck className="w-8 h-8 text-primary animate-pulse shadow-glow" />
+              </div>
+              <span className="text-2xl font-black tracking-tighter italic">
+                Cleanmails
+              </span>
+            </div>
+            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-muted-foreground hover:text-foreground">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2">
+            <div className="space-y-10">
+              <div>
+                <span className="text-[10px] font-black tracking-[0.3em] text-muted-foreground opacity-50 block mb-6 px-4 uppercase">Primary Tools</span>
+                <nav className="space-y-3">
+                  {primaryTools.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all group ${activeTab === item.id
+                        ? 'bg-primary text-primary-foreground shadow-2xl shadow-primary/30 scale-[1.02]'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                        }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`} />
+                        <span className="font-bold text-sm tracking-tight">{item.label}</span>
+                      </div>
+                      {activeTab === item.id && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black tracking-[0.3em] text-muted-foreground opacity-50 block mb-6 px-4 uppercase">Support & Docs</span>
+                <nav className="space-y-3">
+                  {supportTools.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all group ${activeTab === item.id
+                        ? 'bg-primary/10 text-primary border border-primary/20'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                        }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <item.icon className="w-5 h-5 opacity-60" />
+                        <span className="font-bold text-sm tracking-tight">{item.label}</span>
+                      </div>
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-8 mt-auto space-y-6">
+
+            <div className="flex items-center justify-between px-2">
+              <button
+                onClick={toggleDarkMode}
+                className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-all"
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                <span className="text-[10px] font-black uppercase tracking-widest">{darkMode ? 'Light' : 'Dark'} Mode</span>
+              </button>
+
+              <button onClick={handleLogout} className="p-2 text-muted-foreground hover:text-destructive transition-colors" title="Log Out">
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </div>
+      </aside>
 
-        <nav className="flex items-center gap-4">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            Bulk
-          </button>
-          <button
-            onClick={() => setActiveTab('single')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${activeTab === 'single' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-          >
-            <User className="w-4 h-4" />
-            Single
-          </button>
-          <button
-            onClick={() => setActiveTab('docs')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${activeTab === 'docs' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-          >
-            <BookOpen className="w-4 h-4" />
-            Docs
-          </button>
-          <div className="w-[1px] h-6 bg-slate-200 mx-2" />
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium text-rose-500 hover:bg-rose-50 transition-colors"
-            title="Lock Session"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </nav>
-      </header>
+      {/* Main Content */}
+      <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'ml-0'}`}>
+        {/* Top bar refined */}
+        <header className="sticky top-0 z-30 w-full bg-background/60 backdrop-blur-xl border-b border-white/5 px-10 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              {!isSidebarOpen && (
+                <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-muted/50 rounded-xl text-muted-foreground hover:text-foreground transition-all">
+                  <Menu className="w-5 h-5" />
+                </button>
+              )}
+              <h2 className="text-xl font-black italic tracking-tight">{menuItems.find(m => m.id === activeTab)?.label}</h2>
+            </div>
 
-      <main className="container mx-auto px-6 py-8">
-        {renderContent()}
+            <div className="flex items-center gap-6">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-indigo-600 shadow-xl shadow-primary/20 border border-white/10" />
+            </div>
+          </div>
+        </header>
+
+        <div className="p-10 max-w-7xl mx-auto min-h-[calc(100vh-80px)]">
+          {renderContent()}
+        </div>
       </main>
-
-      <footer className="py-8 text-center text-slate-400 text-xs border-t border-slate-100">
-        <p>&copy; 2026 Cleanmails email validator v1.0.0.</p>
-      </footer>
     </div>
   );
 }
 
 export default App;
+
+

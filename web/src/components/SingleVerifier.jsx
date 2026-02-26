@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Search, Shield, Zap, Mail, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from 'lucide-react';
+import { Search, Shield, Zap, Mail, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Globe, Info } from 'lucide-react';
 
 const SingleVerifier = () => {
     const [email, setEmail] = useState('');
@@ -52,80 +52,95 @@ const SingleVerifier = () => {
         const disposable = result.disposable;
         const smtp = result.smtp;
 
-        if (reachable === 'yes') return { icon: <CheckCircle2 className="w-12 h-12 text-emerald-500" />, label: 'Good / Deliverable', color: 'bg-emerald-50 border-emerald-200' };
-        if (smtp?.catch_all) return { icon: <AlertTriangle className="w-12 h-12 text-amber-500" />, label: 'Catch-All (Risky)', color: 'bg-amber-50 border-amber-200' };
-        if (disposable) return { icon: <XCircle className="w-12 h-12 text-rose-500" />, label: 'Disposable Address', color: 'bg-rose-50 border-rose-200' };
-        if (reachable === 'no' || !mx) return { icon: <XCircle className="w-12 h-12 text-rose-500" />, label: 'Invalid / Non-Existing', color: 'bg-rose-50 border-rose-200' };
+        if (reachable === 'yes') return { icon: <CheckCircle2 className="w-12 h-12 text-emerald-500" />, label: 'Verified Deliverable', color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-500', subLabel: 'Mailbox exists and is ready for outreach.' };
+        if (smtp?.catch_all) return { icon: <AlertTriangle className="w-12 h-12 text-amber-500" />, label: 'Catch-All Detected', color: 'border-amber-500/20 bg-amber-500/5 text-amber-500', subLabel: 'Risky. Domain accepts all mail; individual existence undefined.' };
+        if (disposable) return { icon: <XCircle className="w-12 h-12 text-rose-500" />, label: 'Disposable Address', color: 'border-rose-500/20 bg-rose-500/5 text-rose-500', subLabel: 'Temporary mailbox. High bounce risk.' };
+        if (reachable === 'no' || !mx) return { icon: <XCircle className="w-12 h-12 text-rose-500" />, label: 'Invalid Recipient', color: 'border-rose-500/20 bg-rose-500/5 text-rose-500', subLabel: 'Mailbox target does not exist or host is down.' };
 
-        return { icon: <Shield className="w-12 h-12 text-slate-400" />, label: 'Unknown', color: 'bg-slate-50 border-slate-200' };
+        return { icon: <Shield className="w-12 h-12 text-muted-foreground" />, label: 'Inconclusive', color: 'border-muted bg-muted/5 text-muted-foreground', subLabel: 'Phase 1 analysis complete. SMTP handshake required.' };
     };
 
     const status = getStatusInfo();
 
     return (
-        <div className="max-w-2xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
             <div className="text-center">
-                <h1 className="text-3xl font-bold text-slate-900">Single Email Verifier</h1>
-                <p className="text-slate-500 mt-2 text-sm uppercase tracking-widest font-bold">Phase 1 & Phase 2 Validation</p>
+                <h1 className="text-4xl font-black italic tracking-tight mb-3">Single Point Verification</h1>
+                <p className="text-muted-foreground font-black uppercase text-[10px] tracking-[0.4em]">Node-Level Email Intelligence</p>
             </div>
 
-            <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-                <form onSubmit={checkLevel1} className="flex gap-2">
-                    <div className="relative flex-1">
-                        <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-                        <input
-                            type="email"
-                            placeholder="Enter email to check..."
-                            className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
+            <div className="bg-card glass border border-white/10 p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 opacity-50" />
+
+                <form onSubmit={checkLevel1} className="relative z-10">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="relative flex-1">
+                            <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <input
+                                type="email"
+                                placeholder="target@example.com"
+                                className="w-full pl-14 pr-6 py-5 rounded-2xl bg-muted/50 border border-transparent focus:border-primary/50 focus:bg-card focus:outline-none transition-all font-bold text-lg"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-10 py-5 rounded-2xl font-black italic tracking-tight flex items-center justify-center gap-3 transition-all shadow-xl shadow-primary/20 disabled:opacity-50"
+                        >
+                            {loading ? 'Analyzing Host...' : 'Run Diagnostics'}
+                            <ArrowRight className="w-5 h-5" />
+                        </button>
                     </div>
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50"
-                    >
-                        {loading ? 'Processing...' : 'Verify Now'}
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
+                    {error && (
+                        <div className="mt-6 flex items-center gap-2 text-rose-500 font-bold text-xs uppercase tracking-wider animate-in fade-in slide-in-from-top-2">
+                            <XCircle className="w-4 h-4" /> {error}
+                        </div>
+                    )}
                 </form>
-                {error && <p className="text-rose-500 text-sm mt-3 font-medium flex items-center gap-1"><XCircle className="w-4 h-4" /> {error}</p>}
             </div>
 
             {result && (
-                <div className={`p-8 rounded-xl border animate-in fade-in slide-in-from-bottom-4 duration-500 ${status.color}`}>
-                    <div className="flex flex-col items-center text-center">
-                        {status.icon}
-                        <h2 className="text-2xl font-black mt-4 uppercase tracking-tight">{status.label}</h2>
-                        <div className="mt-2 text-slate-600 font-mono text-lg">{result.email}</div>
+                <div className={`p-10 rounded-[2.5rem] border glass shadow-2xl animate-in fade-in zoom-in-95 duration-500 ${status.color}`}>
+                    <div className="flex flex-col items-center text-center mb-12">
+                        <div className="p-4 bg-background/50 rounded-3xl mb-6 shadow-inner">
+                            {status.icon}
+                        </div>
+                        <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-2">{status.label}</h2>
+                        <p className="text-xs font-bold opacity-80 uppercase tracking-widest">{status.subLabel}</p>
+                        <div className="mt-6 px-4 py-2 bg-background/50 rounded-xl font-mono text-sm border border-black/5 dark:border-white/5">{result.email}</div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mt-8">
-                        <DetailRow label="Syntax" value={result.syntax?.valid ? 'Valid' : 'Invalid'} success={result.syntax?.valid} />
-                        <DetailRow label="MX Records" value={result.has_mx_records ? 'Found' : 'Not Found'} success={result.has_mx_records} />
-                        <DetailRow label="Disposable" value={result.disposable ? 'Yes' : 'No'} success={!result.disposable} />
-                        <DetailRow label="SMTP" value={result.reachable === 'yes' ? 'Pass' : result.reachable === 'no' ? 'Fail' : 'Untested'} success={result.reachable === 'yes'} />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <DiagCard label="Syntax" value={result.syntax?.valid ? 'RFC PASS' : 'FAIL'} success={result.syntax?.valid} icon={<Info className="w-3 h-3" />} />
+                        <DiagCard label="MX Records" value={result.has_mx_records ? 'ACTIVE' : 'NONE'} success={result.has_mx_records} icon={<Globe className="w-3 h-3" />} />
+                        <DiagCard label="Host Type" value={result.disposable ? 'DISPOSABLE' : 'CORPORATE'} success={!result.disposable} icon={<Shield className="w-3 h-3" />} />
+                        <DiagCard label="SMTP Rank" value={result.reachable === 'yes' ? 'RANK A' : result.reachable === 'no' ? 'RANK F' : 'RANK U'} success={result.reachable === 'yes'} icon={<Zap className="w-3 h-3" />} />
                     </div>
 
                     {result.reachable === 'unknown' && result.has_mx_records && (
-                        <div className="mt-8 pt-8 border-t border-slate-200 text-center">
-                            <p className="text-sm font-bold text-slate-600 mb-4">Want to perform deep SMTP Handshake? Type "yes" below:</p>
-                            <div className="flex max-w-xs mx-auto gap-2">
+                        <div className="mt-12 pt-10 border-t border-black/5 dark:border-white/5 space-y-6">
+                            <div className="flex flex-col items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Phase 2 Authorization</span>
+                                <h3 className="text-lg font-bold italic">Deep Handshake Analysis Required</h3>
+                            </div>
+
+                            <div className="flex max-w-sm mx-auto gap-3">
                                 <input
                                     type="text"
-                                    placeholder="Type 'yes'..."
-                                    className="flex-1 px-4 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Type 'yes' to pulse..."
+                                    className="flex-1 px-5 py-3 rounded-xl bg-background/50 border border-black/10 dark:border-white/10 focus:outline-none focus:border-primary/50 text-sm font-bold uppercase tracking-widest"
                                     value={confirmLevel2}
                                     onChange={(e) => setConfirmLevel2(e.target.value)}
                                 />
                                 <button
                                     onClick={checkLevel2}
                                     disabled={confirmLevel2.toLowerCase() !== 'yes' || loading}
-                                    className="bg-slate-900 text-white px-4 py-2 rounded font-bold text-sm hover:bg-black disabled:opacity-20 transition-all"
+                                    className="bg-foreground text-background dark:bg-white dark:text-black px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 disabled:opacity-20 transition-all"
                                 >
-                                    Proceed
+                                    Confirm
                                 </button>
                             </div>
                         </div>
@@ -136,11 +151,15 @@ const SingleVerifier = () => {
     );
 };
 
-const DetailRow = ({ label, value, success }) => (
-    <div className="bg-white/50 p-4 rounded-lg flex flex-col items-center justify-center border border-white/20">
-        <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{label}</span>
-        <span className={`text-sm font-bold ${success ? 'text-emerald-600' : 'text-rose-600'}`}>{value}</span>
+const DiagCard = ({ label, value, success, icon }) => (
+    <div className="glass-card p-6 rounded-2xl flex flex-col items-center justify-center text-center border-black/5 dark:border-white/5">
+        <div className="flex items-center gap-2 mb-2">
+            {icon}
+            <span className="text-[9px] uppercase font-black tracking-widest opacity-50">{label}</span>
+        </div>
+        <span className={`text-xs font-black italic tracking-tight ${success ? 'text-emerald-500' : 'text-rose-500'}`}>{value}</span>
     </div>
 );
 
 export default SingleVerifier;
+

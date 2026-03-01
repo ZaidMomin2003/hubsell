@@ -17,6 +17,7 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedPhase2Lists, setSelectedPhase2Lists] = useState({ good: true, bad: false });
     const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+    const [error, setError] = useState(null);
 
     const resultsPerPage = 50;
     const fileInputRef = useRef(null);
@@ -76,6 +77,8 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
             }
         } catch (err) {
             console.error('Polling error', err);
+            setError('Lost connection to server while processing.');
+            setStep('upload');
         }
     };
 
@@ -150,11 +153,14 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
 
     const startVerification = async (emails, l) => {
         try {
+            setError(null);
             setStep('processing');
             setLevel(l);
             const { data } = await axios.post('/v1/bulk', { emails, level: l });
             setJobId(data.id);
         } catch (err) {
+            console.error('Verification initiation failed', err);
+            setError(err.response?.data?.error || 'Validation failed. This can happen if the list is too large or if a browser extension (like Brave Shields) blocked the connection.');
             setStep('upload');
         }
     };
@@ -240,6 +246,16 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
                         <h1 className="text-4xl font-black tracking-tight mb-3 italic">Bulk Email Hygiene</h1>
                         <p className="text-muted-foreground font-medium uppercase text-xs tracking-[0.3em]">Phase 1: Basic Analysis & Filtering</p>
                     </div>
+
+                    {error && (
+                        <div className="mb-8 w-full max-w-4xl p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-500 text-xs font-bold animate-in fade-in slide-in-from-top-4">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            <span>{error}</span>
+                            <button onClick={() => setError(null)} className="ml-auto hover:opacity-50">
+                                <XCircle className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
 
                     <div
                         className="group relative w-full max-w-4xl bg-card border-4 border-dashed border-muted rounded-[2rem] p-20 text-center hover:border-primary/50 cursor-pointer transition-all duration-500 overflow-hidden"

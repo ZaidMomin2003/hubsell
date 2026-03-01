@@ -63,8 +63,7 @@ const Setup = ({ onComplete }) => {
                             <h3 className="text-amber-500 font-black text-sm uppercase tracking-wider mb-1">CRITICAL WARNING</h3>
                             <p className="text-slate-300 text-sm font-medium">
                                 This system is self-hosted and 100% private. <b>We do not store your password.</b>
-                                If you forget it, you will lose access to this installation permanently.
-                                Write it down or use a manager.
+                                If you forget it, you will lose access to this installation permanently and must <b>reinstall the system</b> to reset credentials.
                             </p>
                         </div>
                     </div>

@@ -11,11 +11,11 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
     const [jobStatus, setJobStatus] = useState(null);
     const [results, setResults] = useState([]);
     const [originalRows, setOriginalRows] = useState([]);
-    const [stats, setStats] = useState({ good: 0, risky: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 });
+    const [stats, setStats] = useState({ good: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 });
     const [level, setLevel] = useState(1);
     const [filter, setFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
-    const [selectedPhase2Lists, setSelectedPhase2Lists] = useState({ good: true, risky: false, bad: false });
+    const [selectedPhase2Lists, setSelectedPhase2Lists] = useState({ good: true, bad: false });
     const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
     const resultsPerPage = 50;
@@ -47,13 +47,10 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
 
     const filteredResults = results.filter(item => {
         if (filter === 'all') return true;
-        const status = item.result?.reachable || 'unknown';
-        const isGood = status === 'yes';
-        const isBad = status === 'no' || item.result?.disposable === true || item.result?.has_mx_records === false;
-        const isRisky = !isGood && !isBad;
+        const isBad = item.result?.reachable === 'no' || item.result?.disposable === true || item.result?.has_mx_records === false;
+        const isGood = !isBad;
 
         if (filter === 'good') return isGood;
-        if (filter === 'risky') return isRisky;
         if (filter === 'bad') return isBad;
         return true;
     });
@@ -95,17 +92,13 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
     };
 
     const calculateStats = (resList) => {
-        const s = { good: 0, risky: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 };
+        const s = { good: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 };
         resList.forEach((item) => {
             const result = item.result;
             if (result) {
-                const isGood = result.reachable === 'yes';
                 const isBad = result.reachable === 'no' || result.disposable === true || result.has_mx_records === false;
-                const isRisky = !isGood && !isBad;
-
-                if (isGood) s.good++;
-                else if (isBad) s.bad++;
-                else s.risky++;
+                if (isBad) s.bad++;
+                else s.good++;
 
                 if (result.syntax?.valid) s.syntax++;
                 if (result.disposable) s.disposable++;
@@ -155,7 +148,7 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
         setJobStatus(null);
         setResults([]);
         setOriginalRows([]);
-        setStats({ good: 0, risky: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 });
+        setStats({ good: 0, bad: 0, syntax: 0, disposable: 0, mx: 0 });
         setFilter('all');
         setCurrentPage(1);
     };
@@ -163,13 +156,10 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
     const downloadResults = (type) => {
         const toDownload = results.filter(row => {
             if (type === 'all') return true;
-            const status = row.result?.reachable || 'unknown';
-            const isGood = status === 'yes';
-            const isBad = status === 'no' || row.result?.disposable === true || row.result?.has_mx_records === false;
-            const isRisky = !isGood && !isBad;
+            const isBad = row.result?.reachable === 'no' || row.result?.disposable === true || row.result?.has_mx_records === false;
+            const isGood = !isBad;
 
             if (type === 'good') return isGood;
-            if (type === 'risky') return isRisky;
             if (type === 'bad') return isBad;
             return false;
         });
@@ -177,11 +167,8 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
         if (toDownload.length === 0) return;
 
         const csvContent = toDownload.map(row => {
-            const status = row.result?.reachable || 'unknown';
-            let label = "Unknown";
-            if (status === 'yes') label = "Good";
-            else if (status === 'no' || row.result?.disposable || !row.result?.has_mx_records) label = "Bad";
-            else label = "Risky";
+            const isBad = row.result?.reachable === 'no' || row.result?.disposable || !row.result?.has_mx_records;
+            let label = isBad ? "Bad" : "Good";
 
             return `${row.original},${label},${row.result?.disposable ? 'Disposable' : 'Corporate'},${row.result?.smtp?.catch_all ? 'Catch-all' : 'Direct'}`;
         }).join('\n');
@@ -204,13 +191,10 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
         } catch (e) { }
 
         const emailsToVerify = results.filter(item => {
-            const status = item.result?.reachable || 'unknown';
-            const isGood = status === 'yes';
-            const isBad = status === 'no' || item.result?.disposable === true || item.result?.has_mx_records === false;
-            const isRisky = !isGood && !isBad;
+            const isBad = item.result?.reachable === 'no' || item.result?.disposable === true || item.result?.has_mx_records === false;
+            const isGood = !isBad;
 
             if (selectedPhase2Lists.good && isGood) return true;
-            if (selectedPhase2Lists.risky && isRisky) return true;
             if (selectedPhase2Lists.bad && isBad) return true;
             return false;
         }).map(item => item.email);
@@ -282,9 +266,8 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
 
             {step === 'results' && (
                 <div className="space-y-10">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <ResultStat label="Deliverable" value={stats.good} color="text-emerald-500" icon={<CheckCircle2 className="w-5 h-5" />} />
-                        <ResultStat label="Risky / Unknown" value={stats.risky} color="text-amber-500" icon={<AlertCircle className="w-5 h-5" />} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ResultStat label="Good / Deliverable" value={stats.good} color="text-emerald-500" icon={<CheckCircle2 className="w-5 h-5" />} />
                         <ResultStat label="Bad / Invalid" value={stats.bad} color="text-rose-500" icon={<XCircle className="w-5 h-5" />} />
                     </div>
 
@@ -301,7 +284,6 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
 
                                 <div className="flex flex-wrap gap-4">
                                     <SegmentToggle label="Good" count={stats.good} active={selectedPhase2Lists.good} onClick={() => setSelectedPhase2Lists(p => ({ ...p, good: !p.good }))} color="bg-emerald-500" />
-                                    <SegmentToggle label="Risky" count={stats.risky} active={selectedPhase2Lists.risky} onClick={() => setSelectedPhase2Lists(p => ({ ...p, risky: !p.risky }))} color="bg-amber-500" />
                                     <SegmentToggle label="Bad" count={stats.bad} active={selectedPhase2Lists.bad} onClick={() => setSelectedPhase2Lists(p => ({ ...p, bad: !p.bad }))} color="bg-rose-500" />
                                 </div>
                             </div>
@@ -318,7 +300,7 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
                     <div className="bg-card glass border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl">
                         <div className="p-8 border-b border-white/5 flex flex-wrap justify-between items-center gap-6">
                             <div className="flex flex-wrap gap-3 items-center">
-                                {['all', 'good', 'risky', 'bad'].map(f => (
+                                {['all', 'good', 'bad'].map(f => (
                                     <button
                                         key={f}
                                         onClick={() => setFilter(f)}
@@ -342,8 +324,7 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
                                     {showDownloadMenu && (
                                         <div className="absolute left-0 mt-3 w-56 bg-card border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden py-2 animate-in fade-in zoom-in-95 duration-200">
                                             <DownloadOption onClick={() => downloadResults('all')} label="All Results" icon={<List className="w-4 h-4" />} />
-                                            <DownloadOption onClick={() => downloadResults('good')} label="Deliverable Only" icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} />
-                                            <DownloadOption onClick={() => downloadResults('risky')} label="Risky Only" icon={<AlertCircle className="w-4 h-4 text-amber-500" />} />
+                                            <DownloadOption onClick={() => downloadResults('good')} label="Good Only" icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} />
                                             <DownloadOption onClick={() => downloadResults('bad')} label="Bad Only" icon={<XCircle className="w-4 h-4 text-rose-500" />} />
                                         </div>
                                     )}
@@ -394,7 +375,7 @@ const Dashboard = ({ initialEmails = null, onResetState }) => {
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-5">
-                                                    <ResultBadge reachable={reachable} smtp={smtp} />
+                                                    <ResultBadge reachable={reachable} smtp={smtp} disposable={isDisposable} mx={hasMX} />
                                                 </td>
                                             </tr>
                                         );
@@ -466,25 +447,18 @@ const DownloadOption = ({ onClick, label, icon }) => (
     </button>
 );
 
-const ResultBadge = ({ reachable, smtp }) => {
-    if (reachable === 'yes') return (
-        <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
-            DELIVERABLE
-        </span>
-    );
-    if (smtp?.catch_all) return (
-        <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
-            CATCH-ALL
-        </span>
-    );
-    if (reachable === 'no') return (
+const ResultBadge = ({ reachable, smtp, disposable, mx }) => {
+    const isBad = reachable === 'no' || disposable === true || mx === false;
+
+    if (isBad) return (
         <span className="bg-rose-500/10 text-rose-500 border border-rose-500/20 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
-            INVALID
+            BAD / INVALID
         </span>
     );
+
     return (
-        <span className="bg-muted/50 text-muted-foreground border border-white/5 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
-            PENDING
+        <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-4 py-1.5 rounded-full text-[9px] font-black italic uppercase tracking-wider">
+            GOOD / DELIVERABLE
         </span>
     );
 };

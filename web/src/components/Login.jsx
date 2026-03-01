@@ -113,10 +113,16 @@ const Login = ({ onLogin }) => {
                     </form>
 
                     <div className="mt-10 pt-8 border-t border-white/5 text-center">
-                        <p className="text-[9px] text-slate-600 font-black uppercase tracking-[0.3em] leading-relaxed">
+                        <p className="text-[9px] text-slate-600 font-black uppercase tracking-[0.3em] leading-relaxed mb-4">
                             Secured Self-Hosted Cryptographic Node<br />
                             Unauthorized access is prohibited
                         </p>
+                        <div className="flex items-center justify-center gap-2 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                            <AlertCircle className="w-3 h-3 text-amber-500" />
+                            <p className="text-[8px] text-amber-500/70 font-black uppercase tracking-widest">
+                                Lost Access? You must reinstall the system to reset credentials.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

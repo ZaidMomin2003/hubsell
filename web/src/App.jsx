@@ -275,7 +275,7 @@ function App() {
             </div>
 
             <div className="flex items-center gap-6">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-indigo-600 shadow-xl shadow-primary/20 border border-white/10" />
+              {/* Profile/Identity Placeholder Removed */}
             </div>
           </div>
         </header>
